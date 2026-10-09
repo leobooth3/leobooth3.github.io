@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leo Booth | Portfolio</title>
+<style>
+  :root { --bg:#faf9f7; --ink:#1c1c1c; --muted:#5f5f5f; --accent:#b3122f; --card:#ffffff; --line:#e6e3de; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:Georgia, "Times New Roman", serif; line-height:1.6; }
+  header { max-width:760px; margin:0 auto; padding:72px 24px 24px; }
+  nav { max-width:760px; margin:0 auto; padding:0 24px; font-family:system-ui, sans-serif; font-size:14px; }
+  nav a { color:var(--muted); margin-right:20px; text-decoration:none; }
+  nav a:hover { color:var(--accent); }
+  h1 { font-size:2.4rem; margin:0 0 12px; }
+  .statement { font-size:1.25rem; color:var(--muted); margin:0; }
+  main { max-width:760px; margin:0 auto; padding:0 24px 80px; }
+  section { margin-top:56px; }
+  h2 { font-family:system-ui, sans-serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); border-bottom:1px solid var(--line); padding-bottom:8px; }
+  .skills { display:flex; flex-wrap:wrap; gap:10px; padding:0; list-style:none; }
+  .skills li { font-family:system-ui, sans-serif; font-size:14px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:6px 14px; }
+  .project { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:16px; }
+  .project h3 { margin:0 0 6px; font-size:1.15rem; }
+  .project p { margin:0 0 10px; color:var(--muted); }
+  .project a { font-family:system-ui, sans-serif; font-size:14px; color:var(--accent); margin-right:16px; }
+  footer { max-width:760px; margin:0 auto; padding:0 24px 48px; font-family:system-ui, sans-serif; font-size:14px; color:var(--muted); }
+  footer a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Leo Booth</h1>
+  <!-- TODO: rewrite this one sentence in your own voice. -->
+  <p class="statement">Rutgers Business School junior studying Finance and Leadership &amp; Management, with a focus on consulting.</p>
+</header>
+<nav>
+  <a href="#skills">Skills</a>
+  <a href="#projects">Projects</a>
+  <a href="#contact">Contact</a>
+</nav>
+<main>
+  <section id="skills">
+    <h2>Skills</h2>
+    <ul class="skills">
+      <li>Strategy consulting writing</li>
+      <li>Market sizing (TAM, SAM, SOM)</li>
+      <li>Case interview preparation</li>
+      <li>Corporate finance coursework</li>
+      <li>Project management</li>
+      <li>Stakeholder coordination</li>
+      <li>AI assisted research and workflows</li>
+    </ul>
+  </section>
+
+  <section id="projects">
+    <h2>Projects</h2>
+
+    <div class="project">
+      <h3>TriCon Construction Project Support</h3>
+      <p>During a Project Management and Operations internship, I supported projects totaling $34M, coordinated with trades, and used AI tools to produce 3D renders, one of which a subcontractor used on a live project.</p>
+    </div>
+
+    <div class="project">
+      <h3>Strategy Consulting Content, Wall Street Oasis</h3>
+      <p>Wrote strategy consulting content for Wall Street Oasis, a finance and consulting community.</p>
+      <a href="https://www.wallstreetoasis.com/resources/skills/strategy/tam-sam-som">Read the TAM, SAM, SOM article</a>
+    </div>
+
+    <!-- TODO: add a third project you actually built, with a public GitHub link. -->
+  </section>
+</main>
+<footer id="contact">
+  <a href="https://www.linkedin.com/in/leodbooth/">LinkedIn</a> &nbsp; <a href="https://github.com/leobooth3">GitHub</a>
+</footer>
+</body>
+</html>
