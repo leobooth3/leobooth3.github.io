@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hollow Rectangular Prism</title>
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#111318; overflow:hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  #canvas-holder { position:absolute; inset:0; }
+  #panel {
+    position:absolute; top:16px; left:16px; z-index:10;
+    background:rgba(20,22,28,0.85); backdrop-filter: blur(6px);
+    border:1px solid rgba(255,255,255,0.08); border-radius:12px;
+    padding:16px 18px; color:#e8e8ec; width:220px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  #panel h1 { font-size:13px; font-weight:600; margin:0 0 12px 0; letter-spacing:0.02em; color:#fff; }
+  .row { margin-bottom:10px; }
+  .row label { display:flex; justify-content:space-between; font-size:12px; color:#a8abb5; margin-bottom:4px; }
+  .row label span.val { color:#fff; font-variant-numeric: tabular-nums; }
+  input[type=range] { width:100%; accent-color:#7c9cff; }
+  #toggle {
+    width:100%; margin-top:8px; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.12);
+    background:#2a2d38; color:#e8e8ec; font-size:12px; cursor:pointer; transition:background 0.15s;
+  }
+  #toggle:hover { background:#353845; }
+  #toggle.active { background:#3d4a7a; border-color:#7c9cff; }
+  #hint { position:absolute; bottom:14px; left:16px; color:#6a6d78; font-size:11px; z-index:10; }
+</style>
+</head>
+<body>
+<div id="canvas-holder"></div>
+<div id="panel">
+  <h1>HOLLOW RECTANGULAR PRISM</h1>
+  <div class="row"><label>Width <span class="val" id="wVal">2.5</span></label><input id="w" type="range" min="1" max="6" step="0.1" value="2.5"></div>
+  <div class="row"><label>Height <span class="val" id="hVal">5.0</span></label><input id="h" type="range" min="1" max="8" step="0.1" value="5"></div>
+  <div class="row"><label>Depth <span class="val" id="dVal">2.5</span></label><input id="d" type="range" min="1" max="6" step="0.1" value="2.5"></div>
+  <div class="row"><label>Wall thickness <span class="val" id="tVal">0.15</span></label><input id="t" type="range" min="0.05" max="1" step="0.05" value="0.15"></div>
+  <button id="toggle" class="active">Cutaway: ON</button>
+</div>
+<div id="hint">Drag to orbit · Scroll to zoom · A–D bottom, E–H top (A under E, etc.)</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const holder = document.getElementById('canvas-holder');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111318);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(7, 5, 9);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+holder.appendChild(renderer.domElement);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 0.9);
+key.position.set(5, 8, 6);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x8fa8ff, 0.35);
+fill.position.set(-6, -3, -4);
+scene.add(fill);
+
+// Group holding the box
+const boxGroup = new THREE.Group();
+scene.add(boxGroup);
+
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x7c9cff, metalness:0.15, roughness:0.45, side: THREE.DoubleSide });
+const insideMat = new THREE.MeshStandardMaterial({ color: 0x394269, metalness:0.1, roughness:0.6, side: THREE.DoubleSide });
+const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent:true, opacity:0.25 });
+
+let cutawayOn = true;
+
+function clearGroup() {
+  while (boxGroup.children.length) {
+    const obj = boxGroup.children.pop();
+    if (obj.geometry) obj.geometry.dispose();
+    boxGroup.remove(obj);
+  }
+}
+
+function addTriangularBackWall(w, h, thick, cz, material) {
+  // Remaining triangle after removing corner A-B-F: keeps A (bottom-left), E (top-left), F (top-right)
+  const shape = new THREE.Shape();
+  shape.moveTo(-w/2, -h/2); // A
+  shape.lineTo(w/2, h/2);   // F
+  shape.lineTo(-w/2, h/2);  // E
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false });
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.set(0, 0, cz);
+  boxGroup.add(mesh);
+
+  const edges = new THREE.EdgesGeometry(geo);
+  const line = new THREE.LineSegments(edges, edgeMat);
+  line.position.set(0, 0, cz);
+  boxGroup.add(line);
+}
+
+function addWall(sx, sy, sz, px, py, pz, material) {
+  const geo = new THREE.BoxGeometry(sx, sy, sz);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.set(px, py, pz);
+  boxGroup.add(mesh);
+
+  const edges = new THREE.EdgesGeometry(geo);
+  const line = new THREE.LineSegments(edges, edgeMat);
+  line.position.set(px, py, pz);
+  boxGroup.add(line);
+}
+
+function makeLabelSprite(text) {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,size,size);
+  ctx.beginPath();
+  ctx.arc(size/2, size/2, 34, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(20,22,28,0.9)';
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#7c9cff';
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 46px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, size/2, size/2 + 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent:true });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.5, 0.5, 0.5);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+function vertexPosition(letter, hw, hh, hd) {
+  const map = {
+    A:[-1,-1,-1], B:[ 1,-1,-1], C:[ 1,-1, 1], D:[-1,-1, 1],
+    E:[-1, 1,-1], F:[ 1, 1,-1], G:[ 1, 1, 1], H:[-1, 1, 1],
+  };
+  const s = map[letter];
+  return new THREE.Vector3(s[0]*hw, s[1]*hh, s[2]*hd);
+}
+
+function addQuad(p1, p2, p3, p4, color) {
+  const geo = new THREE.BufferGeometry();
+  const verts = new Float32Array([
+    p1.x, p1.y, p1.z,
+    p2.x, p2.y, p2.z,
+    p3.x, p3.y, p3.z,
+    p4.x, p4.y, p4.z,
+  ]);
+  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  geo.setIndex([0,1,2, 0,2,3]);
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({
+    color: color, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  boxGroup.add(mesh);
+}
+
+function addTriangle(p1, p2, p3, color) {
+  const geo = new THREE.BufferGeometry();
+  const verts = new Float32Array([
+    p1.x, p1.y, p1.z,
+    p2.x, p2.y, p2.z,
+    p3.x, p3.y, p3.z,
+  ]);
+  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  geo.setIndex([0,1,2,2,1,0]); // both winding orders so it's visible from either side
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({
+    color: color, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  boxGroup.add(mesh);
+}
+
+function addBeam(p1, p2, color) {
+  const dir = new THREE.Vector3().subVectors(p2, p1);
+  const length = dir.length();
+  const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+
+  const geo = new THREE.CylinderGeometry(0.05, 0.05, length, 12);
+  const mat = new THREE.MeshStandardMaterial({ color: color, metalness:0.3, roughness:0.4 });
+  const beam = new THREE.Mesh(geo, mat);
+  beam.position.copy(mid);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  boxGroup.add(beam);
+}
+
+function addVertexLabels(hw, hh, hd) {
+  const letters = ['A','B','C','D','E','F','G','H'];
+  const signs = [
+    [-1,-1,-1],[ 1,-1,-1],[ 1,-1, 1],[-1,-1, 1], // bottom: A B C D
+    [-1, 1,-1],[ 1, 1,-1],[ 1, 1, 1],[-1, 1, 1], // top:    E F G H
+  ];
+  signs.forEach((s, i) => {
+    const sprite = makeLabelSprite(letters[i]);
+    sprite.position.set(s[0]*hw, s[1]*hh, s[2]*hd);
+    boxGroup.add(sprite);
+  });
+}
+
+function buildBox() {
+  clearGroup();
+  const W = parseFloat(document.getElementById('w').value);
+  const H = parseFloat(document.getElementById('h').value);
+  const D = parseFloat(document.getElementById('d').value);
+  let t = parseFloat(document.getElementById('t').value);
+  t = Math.min(t, W/2 - 0.02, H/2 - 0.02, D/2 - 0.02); // keep walls valid
+
+  const hw = W/2, hh = H/2, hd = D/2;
+
+  // Bottom wall removed per request
+  // Top wall (full) - skip if cutaway wants top open; keep closed, cut the front instead
+  addWall(W, t, D, 0, hh - t/2, 0, wallMat);
+  // Left wall
+  addWall(t, H - 2*t, D, -hw + t/2, 0, 0, wallMat);
+  // Right wall
+  addWall(t, H - 2*t, D, hw - t/2, 0, 0, wallMat);
+  // Back wall — corner triangle A-B-F removed
+  addTriangularBackWall(W - 2*t, H - 2*t, t, -hd + t/2, wallMat);
+  // Front wall — omitted if cutaway is on
+  if (!cutawayOn) {
+    addWall(W - 2*t, H - 2*t, t, 0, 0, hd - t/2, wallMat);
+  }
+
+  // Interior back-of-cavity shading (subtle inner faces) - add faint inner box outline
+  const innerGeo = new THREE.BoxGeometry(W - 2*t, H - 2*t, D - 2*t);
+  const innerEdges = new THREE.EdgesGeometry(innerGeo);
+  const innerLine = new THREE.LineSegments(innerEdges, new THREE.LineBasicMaterial({ color: 0x7c9cff, transparent:true, opacity:0.35 }));
+  boxGroup.add(innerLine);
+  innerGeo.dispose();
+
+  // Label the 8 outer vertices of the prism
+  addVertexLabels(hw, hh, hd);
+
+  // Beams: A-D, G-F, G-H
+  const ihw = hw - t, ihh = hh - t, ihd = hd - t;
+  const vD_in = vertexPosition('D', ihw, ihh, ihd);
+  const vF_in = vertexPosition('F', ihw, ihh, ihd);
+  const vH_in = vertexPosition('H', ihw, ihh, ihd);
+  const vA_in = vertexPosition('A', ihw, ihh, ihd);
+  addBeam(vD_in, vF_in, 0xffb84d);
+  addBeam(vH_in, vF_in, 0xff6b6b);
+
+  // Wood blocking: triangle H-F-D (shares the D-F edge with the D-A-F triangle below — fully enclosed, no gap)
+  addTriangle(vH_in, vF_in, vD_in, 0x8b5a2b);
+
+  // Wood blocking: triangle D-A-F
+  addTriangle(vD_in, vA_in, vF_in, 0x6b4423);
+
+  // Center camera target roughly on box center
+  controlsTarget.set(0,0,0);
+}
+
+// Simple orbit controls (no external dependency)
+let isDragging = false;
+let prevX = 0, prevY = 0;
+let theta = Math.atan2(camera.position.x, camera.position.z);
+let phi = Math.acos(camera.position.y / camera.position.length());
+let radius = camera.position.length();
+const controlsTarget = new THREE.Vector3(0,0,0);
+
+function updateCameraFromSpherical() {
+  camera.position.x = radius * Math.sin(phi) * Math.sin(theta);
+  camera.position.y = radius * Math.cos(phi);
+  camera.position.z = radius * Math.sin(phi) * Math.cos(theta);
+  camera.lookAt(controlsTarget);
+}
+updateCameraFromSpherical();
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  isDragging = true; prevX = e.clientX; prevY = e.clientY;
+});
+window.addEventListener('pointerup', () => isDragging = false);
+window.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevX;
+  const dy = e.clientY - prevY;
+  prevX = e.clientX; prevY = e.clientY;
+  theta -= dx * 0.008;
+  phi -= dy * 0.008;
+  phi = Math.max(0.15, Math.min(Math.PI - 0.15, phi));
+  updateCameraFromSpherical();
+});
+renderer.domElement.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  radius += e.deltaY * 0.01;
+  radius = Math.max(3, Math.min(25, radius));
+  updateCameraFromSpherical();
+}, { passive:false });
+
+// UI bindings
+function syncLabel(id, digits) {
+  const el = document.getElementById(id);
+  document.getElementById(id + 'Val').textContent = parseFloat(el.value).toFixed(digits);
+}
+['w','h','d'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => { syncLabel(id, 1); buildBox(); });
+});
+document.getElementById('t').addEventListener('input', () => { syncLabel('t', 2); buildBox(); });
+
+document.getElementById('toggle').addEventListener('click', (e) => {
+  cutawayOn = !cutawayOn;
+  e.target.textContent = 'Cutaway: ' + (cutawayOn ? 'ON' : 'OFF');
+  e.target.classList.toggle('active', cutawayOn);
+  buildBox();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+buildBox();
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
